@@ -1,6 +1,6 @@
 name: terraform-web
 on: 
-  puch:
+  push:
     brances:
       - main
 jobs:
