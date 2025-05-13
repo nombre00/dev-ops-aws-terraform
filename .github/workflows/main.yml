@@ -29,7 +29,7 @@ jobs:
         run: |
           mkdir -p $HOME/.aws
           echo "[default]" > $HOME/.aws/config
-          echo "region=us-east-1" >> %HOME/.aws/config
+          echo "region=us-east-1" >> $HOME/.aws/config
           echo "output=json" >> $HOME/.aws/config
 
       - name: build infraestructura  # Nombre del paso, (vamos a buscar terraform).
