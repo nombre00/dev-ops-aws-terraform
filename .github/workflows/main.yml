@@ -1,0 +1,83 @@
+name: terraform-web
+on: 
+  puch:
+    brances:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Los pasos.
+    steps: 
+      - name: obtener codigo  # Nombre del paso.
+        uses: actions/checkout@v2 # El código que vamos a buscar a guithub markets.
+
+      - name: configurar terraform  # Nombre del paso.
+        uses: hashicorp/setup-terraform@v1  # El código que vamos a buscar a guithub markets.
+        with:
+          terraform_version: v1.11.4  # Version.
+      
+      - name: configurar permisos # Nombre del paso.
+        run: |
+          mkdir -p $HOME/.aws
+          echo "[default]" > $HOME/.aws/credentials
+          echo "aws access key id=${{ secrets.AWS_ACCES_KEY_ID }}" >> $HOME/.aws/credentials
+          echo "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $HOME/.aws/credentials
+          echo "aws_session_token=${{ secrets.AWS_SESSION_TOKEN }}" >> $HOME/.aws/credentials
+
+      - name: configuracion AWS credenciales  # Nombre del paso.
+        run: |
+          mkdir -p $HOME/.aws
+          echo "[default]" > $HOME/.aws/config
+          echo "region=us-east-1" >> %HOME/.aws/config
+          echo "output=json" >> $HOME/.aws/config
+
+      - name: build infraestructura  # Nombre del paso, (vamos a buscar terraform).
+        run: |
+          cd terraform
+          terraform init
+          terraform plan
+          terraform apply -auto-approve
+      
+      - name: obtener IPs de EC2  # Nombre del paso.
+        env:  # Variable de ambiente, (este paso es para que terraform vaya a buscar la IP publica solo sin que se la pasemos).
+          AWS_REGION: us-east-1
+        run: |
+          export IP_SERVER=$(aws ec2 describe-instances --region $AWS_REGION --filters "Name=tag:Name,Values=ec2-modulos" --query "Reservations[].Instances[].PublicIpAddress" --output text)
+          echo "IP_SERVER=$IP_SERVER" >> $GITHUB_ENV
+
+      - name: crear la carpeta en el servidor AWS  # acá creamos carpetas
+        uses: appleboy/ssh-action@v1
+        with: 
+          host: ${{ env.IP_SERVER }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          port: ${{ secrets.PORT }}
+          script: |
+            mkdir -p /home/ubuntu/web
+
+      - name: sincronizar archivos del servidor  # copiamos la carpeta web al servidor y la sincronizamos.
+        uses: burnett01/rsync-deployments@7.0.2
+        with: 
+          switches: "-avz --delete"
+          path: "./web"
+          remote_host: ${{ env.IP_SERVER }}
+          remote_user: ${{ secrets.USERNAME }}
+          remote_path: "/home/ubuntu/web"
+          remote_key: ${{ secrets.PRIVATE_KEY }}
+          remote_port: ${{ secrets.PORT }}
+      
+      - name: levantar docker-compose  # levantamos el docker en el servidor.
+        uses: appleboy/ssh-action@v1
+        with: 
+          host: ${{ env.IP_SERVER }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          port: ${{ secrets.PORT }}
+          script: |
+            cd /home/ubuntu/web/web
+            docker compose down
+            docker compose up -d --build
+
+
+
