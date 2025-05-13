@@ -14,7 +14,6 @@ variable "tipo_instancia" {
 variable "llave" {
     type = string
     description = "Llave del ec2"
-    default = ""
   
 }
 variable "sg_ec2" {
