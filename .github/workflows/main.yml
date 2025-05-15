@@ -1,7 +1,7 @@
 name: terraform-web
 on: 
   push:
-    brances:
+    branches:
       - main
 jobs:
   build:
